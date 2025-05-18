@@ -8,10 +8,17 @@ namespace SecretSanta.Controllers;
 [ApiController]
 public class TestController : ControllerBase {
 
+    private readonly IEmailSendService _emailSendService;
     private readonly IUserService _userService;
 
-    public TestController(IUserService userService){
+    public TestController(IEmailSendService emailSendService, IUserService userService){
+        _emailSendService = emailSendService;
         _userService = userService;
+    }
+
+    [HttpGet]
+    public async Task<ActionResult<string>> testGetEmailHistory(){
+        return Ok(await _emailSendService.GetStatus());
     }
 
     [HttpGet("addmail/{mail}")]//test - no validation that they have access to this address, not for production, remove. todo.

@@ -9,10 +9,12 @@ public class UserService : IUserService {
     private readonly ILogger<UserService> _logger;
     private readonly IUserRepository _userRepository;
     private readonly IEmailRepository _emailRepository;
+    private readonly JWTService _jWTService;
     
-    public UserService(IUserRepository userRepository, IEmailRepository emailRepository, ILogger<UserService> logger){
+    public UserService(IUserRepository userRepository, IEmailRepository emailRepository, ILogger<UserService> logger, JWTService jWTService){
         _userRepository = userRepository;
         _emailRepository = emailRepository;
+        _jWTService = jWTService;
         _logger = logger;
         _logger.LogTrace("UserService created.");
     }
@@ -31,6 +33,37 @@ public class UserService : IUserService {
             _logger.LogWarning("email already linked - not linking.");
         }
         return appuser;
+    }
+
+    public async Task<string> createJWTAddNewEMailAsync(string newemail){
+        return _jWTService.CreateJWTAddNewEMail(newemail, (await _userRepository.getApplicationUserAsync()).Id);
+    }
+
+    public async Task<string> addUserEmailFromJWTAsync(string jwtoken){
+        string? result = _jWTService.ValidateJWTAddNewEMail(jwtoken, out var email, out var userid);
+        if(result!=null){
+            return result;
+        }
+        if(await linkEmail(email!,userid!)){
+            return email+" has been successfully linked.";
+        }
+        return "Email cannot be linked";
+    }
+
+    public async Task<bool> linkEmail(string emailaddress, string applicationUserId ){
+        Email Email = await _emailRepository.getEmailAsync(emailaddress);
+        if(Email.ApplicationUserId!=null){
+            return false;//already linked
+        }
+        Email.ApplicationUserId = applicationUserId;
+        if(Email.Id==null){
+            _emailRepository.AddEmail(Email);
+        }
+        await _emailRepository.SaveChangesAsync();
+        if(Email.Id==null){
+            throw new Exception("email can't be added?");
+        }
+        return true;
     }
 
 }

@@ -1,0 +1,23 @@
+@inherits LinkEmailBase;
+@page "/Account/Manage/Linkemail"
+
+<PageTitle>Link Email Account</PageTitle>
+
+@if(message!=null){
+    @message
+}
+@if(accepturl!=null){
+    <div><a href="@accepturl">This shouldn't be here in production, and you can find this email in the test email http api, but as a shortcut, click here to verify that you would like to link email.</a>.</div>
+} else {
+    <text>Link to another email:</text>
+    <div>
+        <EditForm Model="@Input" OnValidSubmit="HandleSubmit" FormName="linkEmail">
+            <DataAnnotationsValidator />
+            <label>Email to link:</label>
+            <InputText @bind-Value="Input.NewEmail">@Input.NewEmail</InputText>
+            <ValidationMessage For="@(() => Input.NewEmail)" />
+            <button type="submit">Submit</button>
+        </EditForm>
+    </div>
+}
+

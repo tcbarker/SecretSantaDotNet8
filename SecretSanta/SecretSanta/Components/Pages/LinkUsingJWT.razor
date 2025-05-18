@@ -1,0 +1,29 @@
+@page "/linkusingjwt/{jwt}"
+@attribute [StreamRendering]
+
+@using SecretSanta.Interfaces
+@inject IUserService UserService
+
+<PageTitle>Link using JWT</PageTitle>
+
+<h1>Linking:</h1>
+
+@if(message!=null){
+    @message
+}
+
+@code {
+
+    [Parameter]
+    public string jwt { get; set; } = "";
+    public string? message = null;
+
+    protected override async Task OnInitializedAsync() {
+        //var result = await HttpClient.PutAsJsonAsync("/api/user/jwt/"+jwt,"");
+        var result = await UserService.addUserEmailFromJWTAsync(jwt);
+        //Console.WriteLine(result);//in the server console.
+        message = result;
+    }
+
+}
+
