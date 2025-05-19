@@ -1,0 +1,98 @@
+//for REST Client by Huachao Mao
+
+###
+@host = http://localhost:5234
+
+@guid = 45aef59a-2320-4b35-839a-08dd8807b433
+
+###
+
+get {{host}}/Account/Register
+
+###
+
+get {{host}}/Account/Login
+
+#need __RequestVerificationToken value from here...
+
+###
+
+post {{host}}/Account/Register
+Content-Type:application/json
+
+{
+	"_handler": "register",
+	"__RequestVerificationToken": "",
+	"Input.Email": "mer@mer.mer",
+	"Input.Password": "Qwe123!",
+	"Input.ConfirmPassword": "Qwe123!"
+}
+
+###
+
+post {{host}}/Account/Login
+Content-Type:application/json
+
+{
+	"_handler": "login",
+	"__RequestVerificationToken": "",
+	"Input.Email": "test@test.te",
+	"Input.Password": "meerQWE123!"
+}
+
+###
+
+
+
+get {{host}}/api/campaign
+
+###
+
+get {{host}}/api/campaign/{{guid}}
+
+###
+
+
+post {{host}}/api/campaign?action=t@t.t
+Content-Type:application/json
+Cookie: .AspNetCore.Identity.Application=get it...
+
+{
+  "Name": "Test Campaign",
+  "WelcomeMessage": "Hello, welcome to campaign.",
+  "Members": [
+    {
+        "Email": "t@t.t",
+        "Organiser": false,
+        "DisplayEmail": "t@t.t",
+        "DisplayName": "yes mate",
+        "Accept": null
+    }
+  ],
+  "JoinPublic": false,
+  "RequireVerification": false
+}
+
+###
+
+
+put {{host}}/api/campaign/{{guid}}?action=none
+Content-Type: application/json
+
+{
+  "Name": "Changed the name...",
+  "WelcomeMessage": "Goodbye!",
+  "Members": [
+    {
+        "Email": "yes mate",
+        "Organiser": false,
+        "DisplayEmail": "",
+        "DisplayName": "",
+        "Accept": null
+    }
+  ],
+  "JoinPublic": true,
+  "RequireVerification": false
+}
+
+###

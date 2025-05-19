@@ -8,6 +8,7 @@ using SecretSanta.Data;
 using SecretSanta.Interfaces;
 using SecretSanta.Data.Models;
 using SecretSanta.Services;
+using SecretSanta.Shared.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,6 +45,8 @@ builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSe
 
 builder.Services.AddSingleton<IEmailSendService, EmailSendService>();
 builder.Services.AddSingleton<JWTService>();
+builder.Services.AddScoped<ICampaignService, CampaignService>();
+builder.Services.AddScoped<ICampaignRepository, CampaignRepository>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IEmailRepository, EmailRepository>();
