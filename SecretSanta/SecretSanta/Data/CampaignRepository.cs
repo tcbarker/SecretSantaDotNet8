@@ -46,17 +46,5 @@ public class CampaignRepository : ICampaignRepository {
         return result;
     }
 
-    public Task<IEnumerable<Campaign>> getAllDbCampaignsAsync(){//test. not for production - remove todo.
-        _logger.LogInformation("Getting ALL campaigns in db.");
-        IEnumerable<Campaign> result = _dbContext.Campaigns
-            .Include(cam => cam.Members)
-                .ThenInclude(mem => mem.Email)
-            .Include(cam => cam.Members)
-                .ThenInclude(mem => mem.DisplayEmail)
-            .Include(cam => cam.CampaignGuid)
-            .ToList();
-        return Task.FromResult<IEnumerable<Campaign>>(result);
-    }
-
 }
 

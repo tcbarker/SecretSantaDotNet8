@@ -8,11 +8,13 @@ namespace SecretSanta.Services;
 public class CampaignService : ICampaignService {
     private readonly ICampaignRepository _campaignRepository;
     private readonly IEmailRepository _emailRepository;
+    private readonly IUserRepository _userRepository;
     private readonly ILogger<CampaignService> _logger;
 
-    public CampaignService(ICampaignRepository campaignRepository, IEmailRepository emailRepository, ILogger<CampaignService> logger){
+    public CampaignService(ICampaignRepository campaignRepository, IEmailRepository emailRepository, IUserRepository userRepository, ILogger<CampaignService> logger){
         _campaignRepository = campaignRepository;
         _emailRepository = emailRepository;
+        _userRepository = userRepository;
         _logger = logger;
         _logger.LogTrace("Campaign service created.");
     }
@@ -94,31 +96,55 @@ public class CampaignService : ICampaignService {
         };
     }
 
-    public async Task<IEnumerable<CampaignDTO>> GetAllCampaignsAsync(){
-        List<CampaignDTO> toreturn = new List<CampaignDTO>();
-        foreach(Campaign campaign in await _campaignRepository.getAllDbCampaignsAsync()){
-            toreturn.Add(toCampaignDTO(campaign,true,[]));
+    public struct UserInfo {
+        public string[] emails;
+        public CampaignDTO[] campaigns;
+    }
+
+    public async Task<UserInfo> getCurrentUserInfoAsync(){
+        _logger.LogTrace("getCurrentUserInfoAsync");
+        UserInfo toreturn = new UserInfo{
+            emails = [],
+            campaigns = []
+        };
+        try {
+            ApplicationUser appuser = await _userRepository.getApplicationUserAsync();
+            toreturn.emails = appuser.Emails.Select(em => em.Address).ToArray();
+        } catch (Exception e) {
+            _logger.LogTrace("Exception: "+e.Message);
         }
         return toreturn;
+    }
+
+    public async Task<IEnumerable<CampaignDTO>> GetAllCampaignsAsync(){
+        return (await getCurrentUserInfoAsync()).campaigns;
     }
 
     public async Task<CampaignDTO> GetCampaignAsync(Guid guid){
         try {
             return toCampaignDTO(
                 await _campaignRepository.getCampaignByGuidAsync(guid),
-                true, []
+                true, (await getCurrentUserInfoAsync()).emails
             );
         } catch (Exception e) {
             throw new Exception("Get - Exception: "+e.Message);
         }
     }
 
-    public Task<CampaignActionDTO> UpdateCampaignAsync(Guid guid, CampaignDTO updatedcampaigndto, string? action) {
-        throw new NotImplementedException();
+    public async Task<CampaignActionDTO> UpdateCampaignAsync(Guid guid, CampaignDTO updatedcampaigndto, string? action) {
+        Campaign fromdb = await _campaignRepository.getCampaignByGuidAsync(guid);
+
+        string[] useremails = (await getCurrentUserInfoAsync()).emails;
+
+        List<CampaignMemberDTO> thesemembersdto = updatedcampaigndto.Members.Where(mem => useremails.Contains(mem.Email) ).ToList();
+        if(thesemembersdto.Count==0){
+            throw new Exception("Update - not logged in");
+        }
+        throw new Exception("todo - unfinshed");
     }
 
     public async Task<CampaignActionDTO> CreateCampaignAsync(CampaignDTO newcampaigndto, string? action = null){
-        string[] useremails = [action!];//test - actually get from logged in user
+        string[] useremails = (await getCurrentUserInfoAsync()).emails;
         Campaign? newcampaign = null;
         try {
             newcampaign = await fromCampaignDTO(newcampaigndto,useremails);
