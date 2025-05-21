@@ -96,13 +96,50 @@ public class CampaignService : ICampaignService {
         };
     }
 
+    void ValidateDisplayEmail(CampaignMember member, string[] useremails){
+        if(member.DisplayEmail==null){
+            if(member.Organiser==true){//could force joined members to do here, too?
+                member.DisplayEmail = member.Email;//force
+            }
+        } else {
+            if(!useremails.Contains(member.DisplayEmail.Address)){//todo
+                member.DisplayEmail = member.Email;//force it
+            }
+        }
+    }
+
+
+    enum UserStatus {
+        Absent,
+        Present,
+        Organiser
+    }
+
+    UserStatus userStatusInCampaign(List<CampaignMember> themembers, string[] useremails){
+        UserStatus present = UserStatus.Absent;
+        foreach(CampaignMember member in themembers.Where(mem => useremails.Contains(mem.Email?.Address) ).ToList() ){
+            if(member.Organiser==true){
+                return UserStatus.Organiser;
+            }
+            present = UserStatus.Present;
+        }
+        return present;
+    }
+
+    CampaignDTO getCampaignDTO(Campaign campaign, string[] useremails){
+        UserStatus status = userStatusInCampaign(campaign.Members, useremails);
+        if(status==UserStatus.Absent && campaign.JoinPublic==false){
+            throw new Exception("Get campaign DTO - User not in, and it isn't public.");
+        }
+        return toCampaignDTO(campaign, status==UserStatus.Organiser, useremails, status==UserStatus.Absent);
+    }
+
     public struct UserInfo {
         public string[] emails;
         public CampaignDTO[] campaigns;
     }
 
-    public async Task<UserInfo> getCurrentUserInfoAsync(){
-        _logger.LogTrace("getCurrentUserInfoAsync");
+    public async Task<UserInfo> getCurrentUserInfoAsync(bool includecampaigns = false){
         UserInfo toreturn = new UserInfo{
             emails = [],
             campaigns = []
@@ -110,6 +147,22 @@ public class CampaignService : ICampaignService {
         try {
             ApplicationUser appuser = await _userRepository.getApplicationUserAsync();
             toreturn.emails = appuser.Emails.Select(em => em.Address).ToArray();
+            if(includecampaigns){
+                List<Campaign> CampaignList = new List<Campaign>();//Distinct type?
+                foreach( Email email in appuser.Emails){
+                    if(email.CampaignMembers==null){
+                        throw new Exception("email.CampaignMembers==null");
+                    }
+                    foreach(CampaignMember campaignMember in email.CampaignMembers){
+                        if(campaignMember.Campaign==null){
+                            throw new Exception("campaignMember.Campaign==null");
+                        }
+                        CampaignList.Add(campaignMember.Campaign);
+                    }
+                }
+                //todo - maybe filter?
+                toreturn.campaigns = CampaignList.Distinct().Select( campaign => getCampaignDTO(campaign, toreturn.emails) ).ToArray();
+            }
         } catch (Exception e) {
             _logger.LogTrace("Exception: "+e.Message);
         }
@@ -117,14 +170,13 @@ public class CampaignService : ICampaignService {
     }
 
     public async Task<IEnumerable<CampaignDTO>> GetAllCampaignsAsync(){
-        return (await getCurrentUserInfoAsync()).campaigns;
+        return (await getCurrentUserInfoAsync(true)).campaigns;
     }
 
     public async Task<CampaignDTO> GetCampaignAsync(Guid guid){
         try {
-            return toCampaignDTO(
-                await _campaignRepository.getCampaignByGuidAsync(guid),
-                true, (await getCurrentUserInfoAsync()).emails
+            return getCampaignDTO(await _campaignRepository.getCampaignByGuidAsync(guid),
+                (await getCurrentUserInfoAsync()).emails
             );
         } catch (Exception e) {
             throw new Exception("Get - Exception: "+e.Message);
@@ -140,7 +192,85 @@ public class CampaignService : ICampaignService {
         if(thesemembersdto.Count==0){
             throw new Exception("Update - not logged in");
         }
-        throw new Exception("todo - unfinshed");
+        List<CampaignMember> thesemembers = fromdb.Members.Where(mem => useremails.Contains(mem.Email?.Address) ).ToList();
+        
+        //verified field in user - todo...?
+
+        bool organiser = false;
+
+        if(thesemembers.Count==0){
+            if(fromdb.JoinPublic){
+                foreach(CampaignMemberDTO newmemberdto in thesemembersdto){
+                    CampaignMember newmember = (await fromCampaignMemberDTO(newmemberdto,false,useremails));
+                    ValidateDisplayEmail(newmember,useremails);
+                    fromdb.Members.Add(newmember);
+                }
+            } else {
+                throw new Exception("Update - user not in this non-public campaign");
+            }
+        } else {
+            foreach(CampaignMemberDTO updatedthismemberdto in thesemembersdto){
+                CampaignMember? foundthismember = thesemembers.Find(mem => {return mem.Email?.Address == updatedthismemberdto.Email;});
+                //and we don't care about members in the db that aren't in the dto update?
+                if(foundthismember==null){
+                    continue;//organiser can add them below...
+                }
+
+                if(foundthismember.Organiser==null){
+                    foundthismember.Organiser = updatedthismemberdto.Organiser;
+                }
+
+                if(foundthismember.Accept!=true){
+                    foundthismember.Accept = updatedthismemberdto.Accept;
+                }
+
+                if(foundthismember.Accept==true || foundthismember.Organiser==true){
+                    foundthismember.DisplayName = updatedthismemberdto.DisplayName;
+                    if(updatedthismemberdto.DisplayEmail!=null){
+                        foundthismember.DisplayEmail = await _emailRepository.getEmailAsync(updatedthismemberdto.DisplayEmail);
+                    }
+                }
+                ValidateDisplayEmail(foundthismember,useremails);
+
+                if(foundthismember.Organiser==true){
+                    organiser = true;
+                }
+
+            }
+        }
+
+        if(organiser){
+            fromdb.Name = updatedcampaigndto.Name;
+            fromdb.WelcomeMessage = updatedcampaigndto.WelcomeMessage;
+            fromdb.JoinPublic = updatedcampaigndto.JoinPublic;
+            fromdb.RequireVerification = updatedcampaigndto.RequireVerification;
+            
+            foreach (CampaignMemberDTO updatedmemberdto in updatedcampaigndto.Members){
+                CampaignMember? memberindb = fromdb.Members.Find(//find or FirstOrDefault???
+                    checkmember=> {return checkmember.Email?.Address==updatedmemberdto.Email;}
+                );
+
+                if(memberindb==null){
+                    try {
+                        fromdb.Members.Add(await fromCampaignMemberDTO(updatedmemberdto,true, useremails) );
+                    } catch(Exception e) {
+                        throw new Exception("Update Campaign: "+e.Message);
+                    }
+                } else {
+                    //memberindb - check for differences we're allowed to update.
+                    //not ourselves? issues? check.
+                    if(memberindb.Organiser==false){
+                        memberindb.Organiser = updatedmemberdto.Organiser;
+                    }
+                    //if(updatedmember.Inactive == true)? todo?
+                }
+            }
+        }
+        await _campaignRepository.SaveChangesAsync();
+        return new CampaignActionDTO {
+            Campaign = toCampaignDTO(fromdb,organiser,useremails),
+            Message = null
+        };
     }
 
     public async Task<CampaignActionDTO> CreateCampaignAsync(CampaignDTO newcampaigndto, string? action = null){
@@ -155,6 +285,20 @@ public class CampaignService : ICampaignService {
         if(thesemembers.Count==0){
             throw new Exception("Create Campaign - member not found (logged in?)");
         }
+
+        bool organiserfound = false;
+        foreach (CampaignMember member in thesemembers){
+            if(member.Organiser==true){
+                organiserfound = true;
+            }
+            ValidateDisplayEmail(member,useremails);
+        }
+
+        if(!organiserfound){
+            thesemembers[0].Organiser = true;//force
+            ValidateDisplayEmail(thesemembers[0],useremails);
+        }
+
 
         _campaignRepository.AddCampaign(newcampaign);
         await _campaignRepository.SaveChangesAsync();
