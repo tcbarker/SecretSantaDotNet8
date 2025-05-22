@@ -23,6 +23,18 @@ public class UserService : IUserService {
         _logger.LogTrace("UserService destroyed.");
     }
 
+    public async Task<string[]> getUserEMailsAsync(){
+        var getmails = new Func<Task<string[]>>( async () => {
+            try {
+                return (await _userRepository.getApplicationUserWithEmailsAsync(false)).Emails.Select(em => em.Address).ToArray();
+            } catch {//(Exception e) {
+                return Array.Empty<string>();
+            }
+        });
+        //_currentUserEmails ??= await getmails();
+        return await getmails();
+    }
+
     public async Task<ApplicationUser> AddEmailToCurrentUserAsync(string mail){
         ApplicationUser appuser = await _userRepository.getApplicationUserAsync();
         Email Email = await _emailRepository.getEmailAsync(mail);

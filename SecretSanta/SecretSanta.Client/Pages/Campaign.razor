@@ -1,0 +1,140 @@
+@inherits CampaignBase;
+@page "/campaign"
+@page "/campaign/{guid:guid}"
+
+@* @attribute [StreamRendering]  *@
+@*Otherwise it will render on server - async function in base class will be called there and waited on *@
+@* @rendermode InteractiveWebAssembly *@
+@* InteractiveServer? InteractiveWebAssembly? otherwise the button won't be clickable*@
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender:false))
+@* prevents double thing, by having the server not do it at all? *@
+
+<PageTitle>Edit Campaign</PageTitle>
+
+
+
+@if(CampaignDTO==null){
+    if(Information==null){
+        <div>Loading...</div>
+    } else {
+        <div>@Information</div>
+    }
+} else {
+
+    if(Information!=null){
+        <div>@Information</div>
+    }
+    
+    <p>Created: @CampaignDTO.CreatedDate</p>
+
+    <EditForm Model="@CampaignDTO" OnSubmit="HandleSubmit" FormName="editCampaign">
+        <label>Campaign Name</label>
+        @if(CampaignDTO.OrganiserView){
+            <InputText @bind-Value="CampaignDTO.Name">@CampaignDTO.Name</InputText>
+        } else {
+            <div>@CampaignDTO.Name</div>
+        }
+
+        <label>Welcome Message</label>
+        @if(CampaignDTO.OrganiserView){
+            <InputTextArea @bind-Value="CampaignDTO.WelcomeMessage">@CampaignDTO.WelcomeMessage</InputTextArea>
+        } else {
+            <div>@CampaignDTO.WelcomeMessage</div>
+        }
+
+        @if(CampaignDTO.OrganiserView){
+            <label>Open to public?</label>
+            <InputCheckbox @bind-Value="CampaignDTO.JoinPublic" />
+            <label>Require verification?</label>
+            <InputCheckbox @bind-Value="CampaignDTO.RequireVerification" />
+        }
+
+        
+
+        @{
+            Dictionary<string,CampaignMemberDTO> DupeList = new Dictionary<string,CampaignMemberDTO>();
+            int index = 0;
+            foreach ( var member in CampaignDTO.Members ){
+                CampaignMemberDTO? ServerState = null;
+                bool onserver = false;
+                bool duplicate = false;
+                bool isuser = false;
+                if(member.Email==null){
+                    ServerState = null;
+                    onserver = true;
+                } else {
+                    isuser = IsUser(member.Email);
+
+                    duplicate = DupeList.TryGetValue(member.Email,out var unusedpreviousentry);
+                    if(!duplicate){
+                        DupeList.Add(member.Email,member);
+                        onserver = MemberOnServer.TryGetValue(member.Email,out ServerState);
+                    }
+                }
+
+                <hr>
+                <div>
+                    @if(onserver){
+                        if(ServerState?.Email !=null){
+                            <text>@ServerState.Email</text>
+                        }
+                    } else {
+                        if(isuser) {
+                            if(Currentuseremails==null){
+                                throw new Exception("Currentuseremails==null");
+                            }
+                            <label for "orgemailselect">Register with which Email?</label>
+                            <select id="orgemailselect" @bind="member.Email">
+                            @foreach (string orgmail in Currentuseremails){
+                                <option value=@orgmail>@orgmail</option>
+                            }
+                            </select>
+                        } else { //can't happen for non org.
+                            <label>Email</label>
+                            <InputText @bind-Value="member.Email">@member.Email</InputText>
+                        }
+                        
+                        if(duplicate){
+                            <text>Can't Register Duplicate Email</text>
+                        }
+                    }
+                </div>
+                if(isuser){
+                    <text>
+                        <label>Display Name?</label>
+                        <InputText @bind-Value="member.DisplayName">@member.DisplayName</InputText>
+                    </text>
+                } else {
+                    <text>
+                        Name: @member.DisplayName
+                    </text>
+                }
+                index++;
+            }
+        }
+        <hr>
+
+        @if(CampaignDTO.OrganiserView){
+            <button @onclick="@((e) => {
+                AddMember("");
+            })">Add a member</button>
+        } else {
+            if(CampaignDTO.JoinPublic){
+                if(Currentuseremails!.Length==0){//CHECKNULL
+                    <div>You must log in to add yourself to this campaign</div>
+                } else {
+                    <button @onclick="@((e) => {
+                        AddMember(0);
+                    })">Add Yourself!</button>
+                }
+            }
+        }
+
+        @if(Currentuseremails!.Length>0){//CHECKNULL
+            <button type="submit">Submit</button>
+        } else {
+            <button type="submit">todo - This Submit button will not exist - not logged in.</button>
+        }
+    </EditForm>
+}
+        

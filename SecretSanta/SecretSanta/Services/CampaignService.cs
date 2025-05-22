@@ -145,7 +145,7 @@ public class CampaignService : ICampaignService {
             campaigns = []
         };
         try {
-            ApplicationUser appuser = await _userRepository.getApplicationUserAsync();
+            ApplicationUser appuser = await _userRepository.getApplicationUserWithEmailsAsync(includecampaigns);
             toreturn.emails = appuser.Emails.Select(em => em.Address).ToArray();
             if(includecampaigns){
                 List<Campaign> CampaignList = new List<Campaign>();//Distinct type?

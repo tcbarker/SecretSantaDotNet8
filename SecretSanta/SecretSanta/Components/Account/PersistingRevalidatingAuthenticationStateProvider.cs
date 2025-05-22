@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using SecretSanta.Client;
 using SecretSanta.Data.Models;
+using SecretSanta.Interfaces;
 
 namespace SecretSanta.Components.Account;
 
@@ -88,6 +89,9 @@ internal sealed class PersistingRevalidatingAuthenticationStateProvider : Revali
         {
             var userId = principal.FindFirst(options.ClaimsIdentity.UserIdClaimType)?.Value;
             var email = principal.FindFirst(options.ClaimsIdentity.EmailClaimType)?.Value;
+            
+            await using var scope = scopeFactory.CreateAsyncScope();
+            var userService = scope.ServiceProvider.GetRequiredService<IUserService>();
 
             if (userId != null && email != null)
             {
@@ -95,6 +99,7 @@ internal sealed class PersistingRevalidatingAuthenticationStateProvider : Revali
                 {
                     UserId = userId,
                     Email = email,
+                    Emails = await userService.getUserEMailsAsync()
                 });
             }
         }

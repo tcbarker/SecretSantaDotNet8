@@ -34,11 +34,15 @@ public class UserRepositoryFake : IUserRepository {
         }
     }
 
-    public Task<ApplicationUser> getApplicationUserAsync(){
+    public Task<ApplicationUser> getApplicationUserWithEmailsAsync(bool ignored){
         if(user==null){
             throw new Exception("Not logged in");
         }
         return Task.FromResult<ApplicationUser>(user);
+    }
+
+    public Task<ApplicationUser> getApplicationUserAsync(){
+        throw new NotImplementedException();
     }
 
     public Task UpdateApplicationUserAsync(ApplicationUser user){
