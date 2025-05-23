@@ -27,10 +27,12 @@
     
     <p>Created: @CampaignDTO.CreatedDate</p>
 
-    <EditForm Model="@CampaignDTO" OnSubmit="HandleSubmit" FormName="editCampaign">
+    <EditForm Model="@CampaignDTO" OnValidSubmit="HandleSubmit" FormName="editCampaign">
+        <DataAnnotationsValidator />
         <label>Campaign Name</label>
         @if(CampaignDTO.OrganiserView){
             <InputText @bind-Value="CampaignDTO.Name">@CampaignDTO.Name</InputText>
+            <ValidationMessage For="@(() => CampaignDTO.Name)" />
         } else {
             <div>@CampaignDTO.Name</div>
         }
@@ -38,6 +40,7 @@
         <label>Welcome Message</label>
         @if(CampaignDTO.OrganiserView){
             <InputTextArea @bind-Value="CampaignDTO.WelcomeMessage">@CampaignDTO.WelcomeMessage</InputTextArea>
+            <ValidationMessage For="@(() => CampaignDTO.WelcomeMessage)" />
         } else {
             <div>@CampaignDTO.WelcomeMessage</div>
         }
@@ -112,6 +115,7 @@
                 index++;
             }
         }
+        <ValidationMessage For="@(() => CampaignDTO.Members)" />
         <hr>
 
         @if(CampaignDTO.OrganiserView){
