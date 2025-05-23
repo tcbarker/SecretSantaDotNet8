@@ -216,6 +216,10 @@ public class CampaignService : ICampaignService {
                     continue;//organiser can add them below...
                 }
 
+                if(foundthismember.Organiser==true){
+                    organiser = true;//check org here, prevent working as org on incomplete data.
+                }
+
                 if(foundthismember.Organiser==null){
                     foundthismember.Organiser = updatedthismemberdto.Organiser;
                 }
@@ -231,11 +235,6 @@ public class CampaignService : ICampaignService {
                     }
                 }
                 ValidateDisplayEmail(foundthismember,useremails);
-
-                if(foundthismember.Organiser==true){
-                    organiser = true;
-                }
-
             }
         }
 

@@ -20,7 +20,7 @@ public class CampaignBase : ComponentBase
 
     protected Dictionary<string,CampaignMemberDTO?> MemberOnServer = new Dictionary<string, CampaignMemberDTO?>();
 
-    protected string[]? Currentuseremails = null;
+    protected string[] Currentuseremails = Array.Empty<string>();
 
     protected string? Information;
 
@@ -40,11 +40,13 @@ public class CampaignBase : ComponentBase
 
     protected override async Task OnInitializedAsync() {//@attribute [StreamRendering] needed on component
         //can i do this just on login? higher up in page hierarchy? pass to page? (can that be done, or is component needed?)
+        string[]? deserialized = null;
         var json = (await GetClaims()).FirstOrDefault(claim => claim.Type==ClaimTypes.UserData)?.Value;
         if(json!=null){
-            Currentuseremails = JsonSerializer.Deserialize<string[]>(json);
-        } else {
-            Currentuseremails = Array.Empty<string>();
+            deserialized = JsonSerializer.Deserialize<string[]>(json);
+        }
+        if(deserialized!=null){
+            Currentuseremails = deserialized;
         }
         await base.OnInitializedAsync();
     }
@@ -60,7 +62,7 @@ public class CampaignBase : ComponentBase
                 Console.WriteLine(Information);
             }
         } else {
-            if(Currentuseremails!.Length>0){//CHECKNULL
+            if(Currentuseremails.Length>0){
                 NewCampaign();
             } else {
                 Information = "Log in to create new campaign.";
@@ -114,14 +116,27 @@ public class CampaignBase : ComponentBase
     }
 
     protected bool IsUser(string email){
-        return Currentuseremails!.Contains(email);//CHECKNULL
+        return Currentuseremails.Contains(email);
+    }
+
+    protected void DeleteMember(CampaignMemberDTO member){
+        if(CampaignDTO==null){
+            throw new Exception("CampaignDTO==null");
+        }
+        //check dict? can't exist..
+        List<CampaignMemberDTO> templist = new List<CampaignMemberDTO>(CampaignDTO.Members);
+        if(templist.Remove(member)){
+            CampaignDTO.Members = templist.ToArray();
+        } else {
+            Console.WriteLine("passed member not in??");
+        }
     }
 
     protected bool AddMember(object fromthis){//int? index, string email = ""){
         if(CampaignDTO==null){
             throw new Exception("CampaignDTO==null");
         }
-        string emailval =   (fromthis is int && Currentuseremails!=null && Currentuseremails.Length>(int)fromthis)?Currentuseremails[(int)fromthis]:
+        string emailval =   (fromthis is int && Currentuseremails.Length>(int)fromthis)?Currentuseremails[(int)fromthis]:
                             (fromthis is string && fromthis!=null)? ((string)fromthis):
                             "";
         if(CampaignDTO.Members.FirstOrDefault( mem => mem.Email == emailval)!=null){
@@ -143,6 +158,17 @@ public class CampaignBase : ComponentBase
         CreateDictionary();//clear
         AddMember(mailchoice);
         CampaignDTO.Members[0].Organiser=true;
+    }
+
+
+
+    protected static bool? GetNullableBool (object? args){
+        if(args==null || string.IsNullOrEmpty(args.ToString())){
+            return null;
+        } else {
+            bool.TryParse(args.ToString(), out var outval);
+            return outval;
+        }
     }
 
     public static T GetClone<T>(T toclone) where T : new(){//using System.Reflection;

@@ -2,6 +2,8 @@
 @page "/campaign"
 @page "/campaign/{guid:guid}"
 
+@using SecretSanta.Client.Pages.Components
+
 @* @attribute [StreamRendering]  *@
 @*Otherwise it will render on server - async function in base class will be called there and waited on *@
 @* @rendermode InteractiveWebAssembly *@
@@ -83,9 +85,6 @@
                         }
                     } else {
                         if(isuser) {
-                            if(Currentuseremails==null){
-                                throw new Exception("Currentuseremails==null");
-                            }
                             <label for "orgemailselect">Register with which Email?</label>
                             <select id="orgemailselect" @bind="member.Email">
                             @foreach (string orgmail in Currentuseremails){
@@ -97,20 +96,74 @@
                             <InputText @bind-Value="member.Email">@member.Email</InputText>
                         }
                         
+                        if(index!=0){//only to catch very first creation..
+                            <ConfirmationBox T="CampaignMemberDTO" MainText="Delete Member?" CallbackFunc="@DeleteMember" ButtonOptions="@(new ConfirmationBoxBase<CampaignMemberDTO>.ButtonOption[]{
+                            new ConfirmationBoxBase<CampaignMemberDTO>.ButtonOption{ ButtonText = "Cancel", CssClass="btn-primary", Value=null },
+                            new ConfirmationBoxBase<CampaignMemberDTO>.ButtonOption{ ButtonText = "Confirm Delete", CssClass="btn-warning", Value=member } })" />
+                        }
+
                         if(duplicate){
                             <text>Can't Register Duplicate Email</text>
                         }
                     }
                 </div>
                 if(isuser){
+                    <label for "displayemailselect">Display Which Email?</label>
+                    <select id="displayemailselect" @bind="member.DisplayEmail">
+                    @if(member.Accept!=true && member.Organiser!=true){
+                        <option value=""></option>
+                    }
+                    @foreach (string orgmail in Currentuseremails){
+                        <option value=@orgmail>@orgmail</option>
+                    }
+                    </select>
                     <text>
                         <label>Display Name?</label>
                         <InputText @bind-Value="member.DisplayName">@member.DisplayName</InputText>
                     </text>
+                    if(!onserver || ServerState!.Accept!=true){//CHECKNULL is actually ok - see isuser //can't go back once true
+                        <label for "acceptselect">Participate?</label>
+                        <select id="acceptselect" @onchange="(e) => member.Accept = GetNullableBool(e.Value)">
+                        <option value="" selected="@(member.Accept==null ? "selected" : null )">Undecided</option>
+                        <option value="true" selected="@(member.Accept==true ? "selected" : null )">Accept</option>
+                        <option value="false" selected="@(member.Accept==false ? "selected" : null )">Decline</option>
+                        </select>
+                    }//else display?
+                    //if(CampaignDTO.OrganiserView){ we could allow making another of ours org... } else {
+                    if(ServerState!=null && ServerState.Organiser==null){
+                        <label for "orgselect">Accept Organiser Role?</label>
+                        <select id="orgselect" @onchange="(e) => member.Organiser = GetNullableBool(e.Value)">
+                        <option value="" selected="@(member.Organiser==null ? "selected" : null )">Undecided</option>
+                        <option value="true" selected="@(member.Organiser==true ? "selected" : null )">Accept</option>
+                        <option value="false" selected="@(member.Organiser==false ? "selected" : null )">Decline</option>
+                        </select>
+                    }//else display?
                 } else {
                     <text>
                         Name: @member.DisplayName
+                        Email: @member.DisplayEmail
+                        @member.Accept (Accept status)
                     </text>
+
+                    if(CampaignDTO.OrganiserView){
+                        if(ServerState==null || ServerState.Organiser!=true){
+                            if (member.Organiser==false){
+                                <text>NOT ORGANISER</text>
+                                <button @onclick="@((e) => {
+                                    member.Organiser = null;
+                                })">Offer organiser?</button>
+                            } else {
+                                <text>ORGANISER OFFERED</text>
+                                <button @onclick="@((e) => {
+                                    member.Organiser = false;
+                                })">Remove offer?</button>
+                            }
+                        }
+                    } else {
+                        if(member.Organiser==true){
+                            <text>Organiser</text>
+                        }
+                    }
                 }
                 index++;
             }
@@ -124,7 +177,7 @@
             })">Add a member</button>
         } else {
             if(CampaignDTO.JoinPublic){
-                if(Currentuseremails!.Length==0){//CHECKNULL
+                if(Currentuseremails.Length==0){
                     <div>You must log in to add yourself to this campaign</div>
                 } else {
                     <button @onclick="@((e) => {
@@ -134,7 +187,7 @@
             }
         }
 
-        @if(Currentuseremails!.Length>0){//CHECKNULL
+        @if(Currentuseremails.Length>0){
             <button type="submit">Submit</button>
         } else {
             <button type="submit">todo - This Submit button will not exist - not logged in.</button>

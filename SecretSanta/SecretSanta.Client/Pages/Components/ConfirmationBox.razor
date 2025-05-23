@@ -1,0 +1,19 @@
+@using SecretSanta.Client.Pages.Components
+@typeparam T
+@inherits ConfirmationBoxBase<T>;
+@implements IDisposable;
+
+
+
+<div>
+    @if(Displayed == true) {
+        <div>
+            @foreach(ButtonOption buttonOption in ButtonOptions){
+                <button type="button" class=@("btn "+buttonOption.CssClass) @onclick="() => ButtonPressed(buttonOption.Value)">@buttonOption.ButtonText</button>
+            }
+        </div>
+    } else {
+        <button type="button" class=@("btn "+@MainClass) @onclick="() => OpenConfirmation()">@MainText</button>
+    }
+</div>
+
