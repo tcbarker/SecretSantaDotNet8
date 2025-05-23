@@ -1,0 +1,55 @@
+@page "/campaigns"
+@attribute [StreamRendering]
+
+@inject ICampaignService CampaignService
+
+<PageTitle>Campaigns</PageTitle>
+
+todo: style like a button?
+<a href="@("/campaign")">
+    Create New Campaign
+</a>
+
+@if(CampaignDTOS==null){
+    <div>Loading...</div>
+} else {
+    @if(CampaignDTOS.Count==0){
+        <div>No campaigns found - are you logged in with the right email?</div>
+    } else {
+        @foreach(CampaignDTO campaign in CampaignDTOS){
+            string guid = campaign.Guid!=null?campaign.Guid.ToString()!:"";//todo. when does this return null?
+            <div>
+                <a href="@("/campaign/"+guid)">
+                    @campaign.Name
+                </a>
+
+                @campaign.CreatedDate
+
+                @if(campaign.OrganiserView){
+                    <text>
+                        Organiser
+                    </text>
+                }
+
+                @campaign.WelcomeMessage
+                
+                Members ??
+            </div>
+        }
+    }
+}
+
+@code {
+
+    protected List<CampaignDTO>? CampaignDTOS;
+
+    protected override async Task OnInitializedAsync() {
+        CampaignDTOS = (await CampaignService.GetAllCampaignsAsync()).ToList();
+    }
+
+    /*protected override async Task OnAfterRenderAsync(bool firstRender){
+
+    }*/
+
+}
+
