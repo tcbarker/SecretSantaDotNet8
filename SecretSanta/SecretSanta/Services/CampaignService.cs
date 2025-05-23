@@ -2,6 +2,7 @@ using SecretSanta.Interfaces;
 using SecretSanta.Data.Models;
 using SecretSanta.Shared.Interfaces;
 using SecretSanta.Shared.Models;
+using System.Text.Json;
 
 namespace SecretSanta.Services;
 
@@ -324,10 +325,25 @@ public class CampaignService : ICampaignService {
             switch(actions[0]){
                 case "sendinvitation":
                     result = await SendMessages(campaign,
+                    actions.Contains("justorganisers"),
                     actions.Contains("force"));
                 break;
 
+                case "redraw":
+                    ClearChosen(campaign);
+                goto case "draw";
+                case "draw":
+                    result = Choose(campaign);
+                    if(result==null){
+                        await SendSecret(campaign);
+                    }
+                break;
+
                 case "none":
+                break;
+
+                case "testreadchosen":
+                    result = DebugWhoChosen(campaign);
                 break;
 
                 default:
@@ -338,7 +354,72 @@ public class CampaignService : ICampaignService {
         return result;
     }
 
-    async Task<string?> SendMessages(Campaign campaign, bool force){
+
+
+    void ClearChosen(Campaign campaign){
+        foreach(CampaignMember member in campaign.Members){
+            member.ChosenEmailId = null;
+            member.ChosenEmail = null;
+        }
+        //await _dbContext.SaveChangesAsync();
+    }
+
+    bool IsChosen(Campaign campaign){
+        if(campaign.Members.FirstOrDefault(mem => mem.ChosenEmailId!=null )==null){
+            return false;
+        }
+        return true;
+    }
+
+
+
+    const int minallowed = 2;
+
+    string? Choose(Campaign campaign){
+        if(IsChosen(campaign)){
+            return "Already been chosen.";
+        }
+        List<CampaignMember> acceptedmembers = campaign.Members.Where(mem => mem.Accept==true ).ToList();
+        
+        _logger.LogTrace("These {count} people have accepted:\r{members}", acceptedmembers.Count, 
+        JsonSerializer.Serialize(acceptedmembers, new JsonSerializerOptions{ ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles, WriteIndented = true }));
+
+        if(acceptedmembers.Count<minallowed){
+            return $"Too few members have accepted (less than {minallowed})";
+        }
+        Shuffle(acceptedmembers);
+        CampaignMember[] memberarray = acceptedmembers.ToArray();
+
+        for(int i = 0;i<memberarray.Length;i++){
+            int chosen = i==0?memberarray.Length-1:i-1;
+            memberarray[i].ChosenEmail = memberarray[chosen].Email;
+        }
+
+        //await _dbContext.SaveChangesAsync();
+
+        return null;
+    }
+
+
+
+    async Task SendSecret(Campaign campaign){
+        if(!IsChosen(campaign)){
+            return;
+        }
+        foreach(CampaignMember member in campaign.Members){
+            CampaignMember? chosen = campaign.Members.FirstOrDefault( mem => mem.EmailId==member.ChosenEmailId);
+            if(chosen!=null){
+                if(member.ChosenEmail==null){// || chosen.DisplayEmail==null || chosen.DisplayName==null){
+                    throw new Exception("chosen thing is null");
+                }
+                //chosen.DisplayEmail?.Address and chosen.DisplayName - must make sure these are set on accepting... todo.
+                await _emailSendService.SendEmail(member.ChosenEmail.Address,"Chosen person from "+campaign.Name,"The person chosen is :"+chosen.DisplayEmail?.Address+" , "+chosen.DisplayName);
+            }
+        }
+    }
+
+
+    async Task<string?> SendMessages(Campaign campaign, bool justorganisers, bool force){
         string? result = null;
         
         string message = "You have been invited to participate in "+campaign.Name+":"+System.Environment.NewLine+campaign.WelcomeMessage+System.Environment.NewLine+"Follow the link:"+_urlService.BaseUri()+"campaign/"+campaign.CampaignGuid!.Id+"\r\n";
@@ -350,6 +431,13 @@ public class CampaignService : ICampaignService {
                 }
             }
             string sendmessage = message;
+            if(member.Organiser==false){
+                if(justorganisers){
+                    continue;
+                }
+            } else {
+                sendmessage+="You have been added as an organiser of this, if you choose to accept.";
+            }
             try{
                 await _emailSendService.SendEmail(member.Email.Address,"Invitation to "+campaign.Name,sendmessage);
                 member.Invitationsent = DateTime.Now;
@@ -359,6 +447,53 @@ public class CampaignService : ICampaignService {
             }
         }
         return result;
+    }
+
+
+
+    string DebugWhoChosen(Campaign campaign){
+        if(!IsChosen(campaign)){
+            return "Not Chosen";
+        }
+        string returnstring = "";
+        foreach(CampaignMember member in campaign.Members){
+            if(member.Email==null){
+                throw new Exception("email is null");
+            }
+            CampaignMember? chosenmember = campaign.Members.FirstOrDefault(mem => mem.EmailId==member.ChosenEmailId);
+            returnstring+=member.Email.Address+" has ";
+            if(chosenmember==null){
+                returnstring+="nobody.";
+                if(member.Accept==true){
+                    returnstring+=" But they had accepted";
+                }
+            } else {
+                if(chosenmember.Email==null){
+                    throw new Exception("email is null");
+                }
+                returnstring+=chosenmember.Email.Address+". ";
+                if(member.Accept!=true){
+                    returnstring+=" But they chose not to participate.";
+                }
+            }
+            returnstring+=System.Environment.NewLine;
+        }
+        return returnstring;
+    }
+    
+
+    static Random rng = new Random();  
+
+    public static void Shuffle<T>(IList<T> list)  
+    {  
+        int n = list.Count;  
+        while (n > 1) {  
+            n--;  
+            int k = rng.Next(n + 1);  
+            T value = list[k];  
+            list[k] = list[n];  
+            list[n] = value;  
+        }  
     }
 
 }

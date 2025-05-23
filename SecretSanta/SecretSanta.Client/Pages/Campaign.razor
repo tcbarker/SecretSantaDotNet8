@@ -185,7 +185,10 @@
             <label for "actionselect">Perform action?</label>
             <select id="actionselect" @bind="Actiontext">
             <option value="none" selected="selected">Nothing</option>
+            <option value="draw">Draw</option>
+            <option value="redraw">Redraw</option>
             <option value="sendinvitation">Send Invitations</option>
+            <option value="sendinvitation-justorganisers">Send Invitations (Organisers only)</option>
             </select>
 
             @if(Actiontext[0]=='s'){
