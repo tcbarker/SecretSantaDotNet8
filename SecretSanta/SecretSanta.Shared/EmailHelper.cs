@@ -14,6 +14,32 @@ public class EmailHelper {
         return true;
     }
 
+    public static string[] ParseForEmails(string emails){
+        List<string> foundmails = new List<string>();
+        string[] atsplit = emails.Split('@');
+        for(int i = 0;i<atsplit.Length-1;i++){
+            if(atsplit[i+1]==string.Empty){
+                i++;
+                continue;
+            }
+            if(atsplit[i]==string.Empty){
+                continue;
+            }
+
+            char[] splitter = new Char[]{',','\r','\n',' ',';'};
+
+            string[] usersplits = atsplit[i].Split(splitter);
+            string[] domainsplits = atsplit[i+1].Split(splitter);
+            string newmail = usersplits[usersplits.Length-1]+"@"+domainsplits[0];
+
+            if(IsValid(newmail)){
+                foundmails.Add(newmail);
+            }
+        }
+
+        return foundmails.ToArray();
+    }
+
 }
 
 /*

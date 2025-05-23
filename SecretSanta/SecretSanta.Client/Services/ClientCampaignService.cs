@@ -43,7 +43,7 @@ public class ClientCampaignService : ICampaignService {
     }
 
     public async Task<CampaignActionDTO> CreateCampaignAsync(CampaignDTO newcampaigndto, string? action){
-        var result = await _httpClient.PostAsJsonAsync("/api/campaign"+"?action="+(action==null?"":"?action="+action), newcampaigndto);
+        var result = await _httpClient.PostAsJsonAsync("/api/campaign"+(action==null?"":"?action="+action), newcampaigndto);
         if(result.IsSuccessStatusCode){
             CampaignActionDTO? read = await result.Content.ReadFromJsonAsync<CampaignActionDTO>();
             if(read!=null){

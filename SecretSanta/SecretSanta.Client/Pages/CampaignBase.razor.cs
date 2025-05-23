@@ -24,6 +24,11 @@ public class CampaignBase : ComponentBase
 
     protected string? Information;
 
+    protected string BulkEmails = "";
+    protected string Actiontext = "none";
+    protected bool Force = false;
+
+
     [Inject]
     public required ICampaignService CampaignService { get; set; }//constructor one in 9.0
 
@@ -82,7 +87,7 @@ public class CampaignBase : ComponentBase
         }
         if(Guid.HasValue){
             try {
-                var response = await CampaignService.UpdateCampaignAsync(Guid.Value,CampaignDTO, null);
+                var response = await CampaignService.UpdateCampaignAsync(Guid.Value,CampaignDTO, Actiontext+(Force==true?"-force":""));
                 Information = response.Message;
                 CampaignDTO = response.Campaign;
                 CreateDictionary();
@@ -92,7 +97,7 @@ public class CampaignBase : ComponentBase
             }
         } else {
             try {
-                var response = await CampaignService.CreateCampaignAsync(CampaignDTO, null);
+                var response = await CampaignService.CreateCampaignAsync(CampaignDTO, Actiontext+(Force==true?"-force":""));
                 NavigationManager.NavigateTo(NavigationManager.Uri+"/"+response.Campaign.Guid);
                 //throwing it away?
             } catch (Exception e) {
@@ -101,6 +106,15 @@ public class CampaignBase : ComponentBase
             }
         }
     }
+
+
+    protected void BulkAddEmails(){
+        foreach(string newemail in EmailHelper.ParseForEmails(BulkEmails)){
+            AddMember(newemail);
+        }
+        BulkEmails = string.Empty;
+    }
+    
 
     void CreateDictionary(){
         MemberOnServer = new Dictionary<string, CampaignMemberDTO?>();

@@ -172,6 +172,28 @@
         <hr>
 
         @if(CampaignDTO.OrganiserView){
+            <label>Bulk Add Emails</label>
+            <InputTextArea @bind-Value="BulkEmails">@BulkEmails</InputTextArea>
+            <button @onclick="((e) => {
+                BulkAddEmails();
+            })">Add Emails</button>
+
+
+            @* <label>Action to perform</label> *@
+            @* <InputText @bind-Value="Actiontext">@Actiontext</InputText> *@
+
+            <label for "actionselect">Perform action?</label>
+            <select id="actionselect" @bind="Actiontext">
+            <option value="none" selected="selected">Nothing</option>
+            <option value="sendinvitation">Send Invitations</option>
+            </select>
+
+            @if(Actiontext[0]=='s'){
+                <label>Send even if sent already?</label>
+                <InputCheckbox @bind-Value="@Force" />
+            }
+
+
             <button @onclick="@((e) => {
                 AddMember("");
             })">Add a member</button>

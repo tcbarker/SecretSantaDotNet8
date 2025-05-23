@@ -9,12 +9,16 @@ public class CampaignService : ICampaignService {
     private readonly ICampaignRepository _campaignRepository;
     private readonly IEmailRepository _emailRepository;
     private readonly IUserRepository _userRepository;
+    private readonly IEmailSendService _emailSendService;
+    private readonly IUrlService _urlService;
     private readonly ILogger<CampaignService> _logger;
 
-    public CampaignService(ICampaignRepository campaignRepository, IEmailRepository emailRepository, IUserRepository userRepository, ILogger<CampaignService> logger){
+    public CampaignService(ICampaignRepository campaignRepository, IEmailRepository emailRepository, IEmailSendService emailSendService, IUserRepository userRepository, ILogger<CampaignService> logger, IUrlService urlService){
         _campaignRepository = campaignRepository;
         _emailRepository = emailRepository;
         _userRepository = userRepository;
+        _emailSendService = emailSendService;
+        _urlService = urlService;
         _logger = logger;
         _logger.LogTrace("Campaign service created.");
     }
@@ -238,6 +242,7 @@ public class CampaignService : ICampaignService {
             }
         }
 
+        string? returnmessage = null;
         if(organiser){
             fromdb.Name = updatedcampaigndto.Name;
             fromdb.WelcomeMessage = updatedcampaigndto.WelcomeMessage;
@@ -264,11 +269,13 @@ public class CampaignService : ICampaignService {
                     //if(updatedmember.Inactive == true)? todo?
                 }
             }
+
+            returnmessage = await PerformActionOnCampaignAsync(fromdb,action);
         }
         await _campaignRepository.SaveChangesAsync();
         return new CampaignActionDTO {
             Campaign = toCampaignDTO(fromdb,organiser,useremails),
-            Message = null
+            Message = returnmessage
         };
     }
 
@@ -298,13 +305,60 @@ public class CampaignService : ICampaignService {
             ValidateDisplayEmail(thesemembers[0],useremails);
         }
 
+        string? returnmessage = await PerformActionOnCampaignAsync(newcampaign,action);
 
         _campaignRepository.AddCampaign(newcampaign);
         await _campaignRepository.SaveChangesAsync();
         return new CampaignActionDTO{
             Campaign = toCampaignDTO(newcampaign, true, useremails),
-            Message = null
+            Message = returnmessage
         };
+    }
+
+
+
+    async Task<string?> PerformActionOnCampaignAsync(Campaign campaign, string? action = null){
+        string? result = null;
+        if(action!=null){
+            string[] actions = action.Split('-');
+            switch(actions[0]){
+                case "sendinvitation":
+                    result = await SendMessages(campaign,
+                    actions.Contains("force"));
+                break;
+
+                case "none":
+                break;
+
+                default:
+                    result = "Unknown actions: "+action;
+                break;
+            }
+        }
+        return result;
+    }
+
+    async Task<string?> SendMessages(Campaign campaign, bool force){
+        string? result = null;
+        
+        string message = "You have been invited to participate in "+campaign.Name+":"+System.Environment.NewLine+campaign.WelcomeMessage+System.Environment.NewLine+"Follow the link:"+_urlService.BaseUri()+"campaign/"+campaign.CampaignGuid!.Id+"\r\n";
+
+        foreach(CampaignMember member in campaign.Members){
+            if(force==false){
+                if(member.Invitationsent!=null){
+                    continue;
+                }
+            }
+            string sendmessage = message;
+            try{
+                await _emailSendService.SendEmail(member.Email.Address,"Invitation to "+campaign.Name,sendmessage);
+                member.Invitationsent = DateTime.Now;
+            } catch(Exception e) {
+                result??=String.Empty;
+                result+="Failed to send email to. "+member.Email.Address+" Message:"+e.Message+System.Environment.NewLine;
+            }
+        }
+        return result;
     }
 
 }

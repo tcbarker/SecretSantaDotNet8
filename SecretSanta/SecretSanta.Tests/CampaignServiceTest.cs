@@ -42,8 +42,10 @@ public class CampaignServiceTests {
         _campaignService = new CampaignService(
             _campaignRepository,
             _emailRepository,
+            new EmailSendService(),
             _userRepository,
-            factory!.CreateLogger<CampaignService>());
+            factory!.CreateLogger<CampaignService>(),
+            new UrlService(null));
     }
 
     void PrintCampaignDTO(CampaignDTO CampaignDTO){
