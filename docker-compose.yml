@@ -1,0 +1,22 @@
+#sudo docker-compose up --build
+#http://localhost:5555/
+
+#version: '3.4'
+
+name: secret_santa_services
+services:
+  secretsanta:
+    container_name: secret_santa
+    build: ./SecretSanta
+    ports:
+      - "5555:8080"
+    depends_on:
+      - docker_sqlserver
+
+  docker_sqlserver:
+    container_name: docker_sqlserver
+    build:
+      context: .
+      dockerfile: SecretSanta/db.Dockerfile
+    ports:
+      - "1433:1433"

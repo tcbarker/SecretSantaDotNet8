@@ -55,6 +55,11 @@ builder.Services.AddLogging();
 
 var app = builder.Build();
 
+using (var scope = app.Services.CreateScope()) {//perform migrations on startup, for free docker hosting demonstration purposes.
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    await db.Database.MigrateAsync();
+}
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
