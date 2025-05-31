@@ -19,4 +19,4 @@ services:
       context: .
       dockerfile: SecretSanta/db.Dockerfile
     ports:
-      - "1433:1433"
+      - "5432:5432"
