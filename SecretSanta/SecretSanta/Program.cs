@@ -9,6 +9,7 @@ using SecretSanta.Interfaces;
 using SecretSanta.Data.Models;
 using SecretSanta.Services;
 using SecretSanta.Shared.Interfaces;
+using SecretSanta.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -43,6 +44,10 @@ builder.Services.AddIdentityCore<ApplicationUser>(options => options.SignIn.Requ
 
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
 
+builder.Services.Configure<JWTServiceOptions>(
+    builder.Configuration.GetSection("Options:JWTServiceOptions")
+);
+
 builder.Services.AddSingleton<IEmailSendService, EmailSendService>();
 builder.Services.AddSingleton<JWTService>();
 builder.Services.AddScoped<IUrlService, UrlService>();
@@ -54,11 +59,6 @@ builder.Services.AddScoped<IEmailRepository, EmailRepository>();
 builder.Services.AddLogging();
 
 var app = builder.Build();
-
-using (var scope = app.Services.CreateScope()) {//perform migrations on startup, for free docker hosting demonstration purposes.
-    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    await db.Database.MigrateAsync();
-}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -87,5 +87,24 @@ app.MapRazorComponents<App>()
 
 // Add additional endpoints required by the Identity /Account Razor components.
 app.MapAdditionalIdentityEndpoints();
+
+using (var scope = app.Services.CreateScope()) {//perform migrations on startup, for free docker hosting demonstration purposes.
+    var dbcontext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    uint attempt = 0;
+    const uint maxattempts = 20;
+    const int waittoretry = 10000;
+    while(true){
+        try {
+            await dbcontext.Database.MigrateAsync();
+            break;
+        } catch (Microsoft.Data.SqlClient.SqlException e) {
+            if(++attempt>maxattempts){
+                throw new Exception("Couldn't perform migration (db server up?) - "+e.Message);
+            }
+            Console.WriteLine(e.Message+"- Migration attempt: "+attempt);
+            await Task.Delay(waittoretry);
+        }
+    }
+}
 
 app.Run();

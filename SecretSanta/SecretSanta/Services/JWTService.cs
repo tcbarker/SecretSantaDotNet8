@@ -1,18 +1,28 @@
 using System.IdentityModel.Tokens.Jwt;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
+using SecretSanta.Options;
+using System.Text;//Encoding.UTF8
+using Microsoft.Extensions.Options;
 //using System.Text.Json;
 
 namespace SecretSanta.Services;
 
-public class JWTService  {
+public class JWTService {
 
-    static SymmetricSecurityKey getKey(){
-        ReadOnlySpan<byte> key = "4df48011-3c8c-4732-b21c-a5aedb29cad5"u8;
-        return new SymmetricSecurityKey(key.ToArray());
+    private readonly JWTServiceOptions _jWTServiceOptions;
+
+    public JWTService(IOptions<JWTServiceOptions> jWTServiceOptions){
+        _jWTServiceOptions = jWTServiceOptions.Value;
     }
 
-    static SigningCredentials getCreds(){
+    SymmetricSecurityKey getKey(){
+        //ReadOnlySpan<byte> key ="4df48011-3c8c-4732-b21c-a5aedb29cad5"u8;
+        //return new SymmetricSecurityKey(key.ToArray());
+        return new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jWTServiceOptions.Key));
+    }
+
+    SigningCredentials getCreds(){
         return new SigningCredentials(getKey(), SecurityAlgorithms.HmacSha256);
     }
 
