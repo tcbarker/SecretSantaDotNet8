@@ -1,0 +1,40 @@
+
+services:
+  - type: web
+    runtime: docker
+    dockerfilePath: ./SecretSanta/Dockerfile
+    dockerContext: ./SecretSanta
+    name: secret_santa
+    region: frankfurt
+    plan: free
+    envVars:
+      - key: CONNECTION_STRING
+        value: Host=${DATABASE_HOST}; Port=${DATABASE_PORT}; Database=${DATABASE_NAME}; Username=${DATABASE_USER}; Password=${DATABASE_PASSWORD};
+      - key: DATABASE_HOST
+        fromDatabase:
+          name: secret_santa_db
+          property: host
+      - key: DATABASE_PORT
+        fromDatabase:
+          name: secret_santa_db
+          property: port
+      - key: DATABASE_NAME
+        fromDatabase:
+          name: secret_santa_db
+          property: database
+      - key: DATABASE_USER
+        fromDatabase:
+          name: secret_santa_db
+          property: user
+      - key: DATABASE_PASSWORD
+        fromDatabase:
+          name: secret_santa_db
+          property: password
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+
+databases:
+  - name: secret_santa_db
+    region: frankfurt
+    plan: free
+

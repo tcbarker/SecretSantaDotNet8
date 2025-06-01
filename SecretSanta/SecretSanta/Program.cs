@@ -34,7 +34,24 @@ builder.Services.AddAuthentication(options =>
     })
     .AddIdentityCookies();
 
-var connectionString = builder.Configuration.GetConnectionString("PostgresConnection") ?? throw new InvalidOperationException("'PostgresConnection' string not found.");
+var envPort = Environment.GetEnvironmentVariable("PORT");
+if(envPort!=null){
+    builder.WebHost.UseUrls("http://*:"+envPort+"/");
+}
+
+var envConnectionString = Environment.GetEnvironmentVariable("CONNECTION_STRING");
+var connectionString = envConnectionString==null?
+    builder.Configuration.GetConnectionString("PostgresConnection")    
+    :string.Join("",
+        envConnectionString
+        .Split(new[] {"${"}, StringSplitOptions.None)
+        .Select( (s,i) => i==0?new[]{s}:s.Split(new[] {'}'}, 2) )
+        .SelectMany(sa => sa)
+        .Select( (s,i) => i%2==0?s:Environment.GetEnvironmentVariable(s) )
+        .ToArray()
+    )
+    ?? throw new InvalidOperationException("Connection string not found.");
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
